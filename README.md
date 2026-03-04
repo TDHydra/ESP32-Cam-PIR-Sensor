@@ -15,8 +15,8 @@ download every stored image — all without unplugging the USB cable.
 | **Deep sleep** | < 1 mA at rest; wakes only on PIR trigger |
 | **Auto camera detection** | Identifies OV2640, OV2660, OV3660, OV5640 at runtime |
 | **High-res capture** | UXGA (1600×1200) when PSRAM present; SVGA (800×600) otherwise |
-| **Rolling image store** | Up to 5 JPEGs in SPIFFS (oldest overwritten automatically) |
-| **WiFi viewer** | Built-in AP + web server; no app, no SD card, no USB disconnect needed |
+| **Rolling image store** | Up to 5 JPEGs on micro SD card (oldest overwritten automatically) |
+| **WiFi viewer** | Built-in AP + web server; no app required |
 | **On-demand capture** | "Capture now" button on the web page for manual shots |
 | **Verbose serial log** | Every step printed at 115200 baud with a clear `[Tag]` prefix |
 
@@ -28,6 +28,7 @@ download every stored image — all without unplugging the USB cable.
 |---|---|
 | AI Thinker ESP32-Cam | Any revision; ships with OV2640 |
 | HC-SR501 PIR module | Standard passive infrared motion sensor |
+| Micro SD card | Up to 32 GB (exFAT or FAT32 formatted) |
 | FTDI / CH340 USB-serial adapter | For programming and serial monitor |
 | Jumper wires | |
 | 5 V power supply or USB power bank | |
@@ -79,7 +80,12 @@ GND   ──────►  IO0  (hold LOW during upload, release after)
 3. Go to *Tools → Board → Boards Manager*, search **esp32**, install the
    **Espressif Systems** package (version 2.x or later).
 
-### 2. Select board and partition
+### 2. Insert micro SD card
+
+1. Format your micro SD card as **FAT32** or **exFAT** on your computer.
+2. Insert it into the SD card slot on the bottom of the AI Thinker ESP32-Cam board.
+
+### 3. Select board and partition
 
 | Setting | Value |
 |---|---|
@@ -88,13 +94,13 @@ GND   ──────►  IO0  (hold LOW during upload, release after)
 | Upload Speed | 115200 |
 | Flash Frequency | 80 MHz |
 
-### 3. Open the sketch
+### 4. Open the sketch
 
 Open `ESP32-Cam-PIR-Sensor.ino` in Arduino IDE.  All required libraries
-(`esp_camera`, `SPIFFS`, `WiFi`, `WebServer`) are bundled with the ESP32 board
+(`esp_camera`, `SD_MMC`, `WiFi`, `WebServer`) are bundled with the ESP32 board
 package — no extra library installs needed.
 
-### 4. (Optional) Customise settings
+### 5. (Optional) Customise settings
 
 At the top of `ESP32-Cam-PIR-Sensor.ino` you can adjust:
 
@@ -109,7 +115,7 @@ At the top of `ESP32-Cam-PIR-Sensor.ino` you can adjust:
 #define PIR_SETTLE_TIMEOUT_MS    5000          // Max wait for PIR to go LOW before sleep
 ```
 
-### 5. Upload
+### 6. Upload
 
 Hold **IO0 to GND**, press **Reset**, click **Upload**.
 Release **IO0**, press **Reset** once more after flashing is complete.
@@ -141,13 +147,13 @@ Release **IO0**, press **Reset** once more after flashing is complete.
   ESP32-Cam PIR Sensor  —  starting up
 ============================================================
 [Boot]   Wakeup reason: EXT0 — PIR motion detected!
-[SPIFFS] OK  total=1044464 B  used=185344 B
+[SD]     OK  total=15876 MB
 [Camera] PSRAM detected → UXGA (1600×1200), quality 10
 [Camera] Sensor PID: 0x2641  →  OV2640
 [Camera] INIT OK
 [Setup]  Capturing image...
 [Capture] Frame: 92416 bytes  format=4
-[Capture] SUCCESS — saved /img_3.jpg (92416 bytes)
+[Capture] SUCCESS — saved /sd/img_3.jpg (92416 bytes)
 [Setup]  Capture: SUCCESS ✓
 [WiFi]   Starting AP  SSID='ESP32-Cam-PIR'  password='12345678'
 [WiFi]   AP IP: 192.168.4.1
@@ -180,7 +186,7 @@ Power on / PIR wakes board
   Print wakeup reason (Serial)
         │
         ▼
-  Mount SPIFFS  ──FAIL──► Serial error, sleep
+  Mount SD card  ──FAIL──► Serial error, sleep
         │
         ▼
   Init camera
@@ -188,7 +194,7 @@ Power on / PIR wakes board
         │
         ▼
   Flash LED ON → grab frame → Flash LED OFF
-  Write JPEG to /img_N.jpg in SPIFFS  ──FAIL──► Serial error (continue to WiFi)
+  Write JPEG to /sd/img_N.jpg  ──FAIL──► Serial error (continue to WiFi)
         │
         ▼
   Start SoftAP  (SSID: ESP32-Cam-PIR)
@@ -227,7 +233,7 @@ serial log.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Camera init fails (0x20004) | Wrong board selected | Select **AI Thinker ESP32-CAM** |
-| `SPIFFS Mount FAILED` | Partition scheme wrong | Use **Huge APP / 1MB SPIFFS** |
+| `[SD] Mount FAILED` | SD card not inserted or damaged | Insert formatted SD card or try on computer |
 | Board doesn't wake on motion | PIR wired to wrong pin | Check OUT → GPIO 13 |
 | Images are upside-down | Camera mounted differently | Toggle `s->set_vflip()` in `initCamera()` |
 | WiFi AP not visible | Too far, or still sleeping | Move closer; wave in front of PIR |

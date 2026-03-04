@@ -42,7 +42,7 @@
 
 #include "esp_camera.h"
 #include "esp_sleep.h"
-#include "SPIFFS.h"
+#include "SD_MMC.h"
 #include <WiFi.h>
 #include <WebServer.h>
 
@@ -211,20 +211,26 @@ bool initCamera() {
 }
 
 // ============================================================
-//  SPIFFS initialisation
+//  SD Card initialisation
 // ============================================================
 
 /**
- * Mount SPIFFS and print available / used space.
+ * Mount SD card via SD_MMC interface and print available / used space.
  * @return true on success.
  */
-bool initSPIFFS() {
-  if (!SPIFFS.begin(true)) {   // true = format if mount fails
-    Serial.println("[SPIFFS] Mount FAILED");
+bool initSDCard() {
+  // SD_MMC uses native SDIO pins on ESP32-Cam:
+  // CLK=GPIO14, CMD=GPIO15, D0=GPIO2, D1=GPIO4, D2=GPIO12, D3=GPIO13
+  // For 1-bit mode (faster init), use SD_MMC.begin("/sd", true);
+  // For 4-bit mode (faster transfers), use SD_MMC.begin("/sd", false);
+  if (!SD_MMC.begin("/sd", false)) {   // false = 4-bit mode
+    Serial.println("[SD] Mount FAILED");
     return false;
   }
-  Serial.printf("[SPIFFS] OK  total=%u B  used=%u B\n",
-                SPIFFS.totalBytes(), SPIFFS.usedBytes());
+  uint64_t cardSize = SD_MMC.cardSize() / (1024 * 1024);
+  uint64_t usedSize = 0;
+  // Note: SD_MMC doesn't provide used space directly; this is just total size
+  Serial.printf("[SD] OK  total=%llu MB\n", cardSize);
   return true;
 }
 
@@ -234,9 +240,9 @@ bool initSPIFFS() {
 
 /**
  * Briefly lights the flash LED, grabs a frame from the camera, and writes
- * the JPEG to SPIFFS using a rolling filename (img_1.jpg … img_N.jpg).
+ * the JPEG to SD card using a rolling filename (img_1.jpg … img_N.jpg).
  *
- * @return The SPIFFS path of the saved file, or "" on failure.
+ * @return The SD card path of the saved file, or "" on failure.
  */
 String captureAndSave() {
   // Momentary flash so the capture is well-lit in low light.
@@ -253,9 +259,9 @@ String captureAndSave() {
 
   // Advance rolling index (1 … MAX_IMAGES).
   rtcImageIndex = (rtcImageIndex % MAX_IMAGES) + 1;
-  String path = "/img_" + String(rtcImageIndex) + ".jpg";
+  String path = "/sd/img_" + String(rtcImageIndex) + ".jpg";
 
-  File f = SPIFFS.open(path, FILE_WRITE);
+  File f = SD_MMC.open(path, FILE_WRITE);
   if (!f) {
     Serial.printf("[Capture] FAILED — could not open %s for writing\n", path.c_str());
     esp_camera_fb_return(fb);
@@ -347,7 +353,14 @@ void handleGallery() {
   page += "<a class='btn' href='/'>← Home</a><br><br>";
   page += "<div class='grid'>";
 
-  File root = SPIFFS.open("/");
+  File root = SD_MMC.open("/sd");
+  if (!root) {
+    page += "<p>Error opening SD card directory.</p>";
+    page += "</div></body></html>";
+    server.send(200, "text/html", page);
+    return;
+  }
+
   File entry = root.openNextFile();
   bool found = false;
 
@@ -392,7 +405,12 @@ void handleFile() {
     return;
   }
 
-  File f = SPIFFS.open(name, FILE_READ);
+  // Prepend /sd if not already present (for gallery links).
+  if (!name.startsWith("/sd")) {
+    name = "/sd" + name;
+  }
+
+  File f = SD_MMC.open(name, FILE_READ);
   if (!f) {
     server.send(404, "text/plain", "File not found: " + name);
     return;
@@ -520,9 +538,9 @@ void setup() {
   digitalWrite(FLASH_LED_PIN, LOW);
   pinMode(PIR_PIN, INPUT);
 
-  // Mount internal flash filesystem.
-  if (!initSPIFFS()) {
-    Serial.println("[Setup] SPIFFS unavailable — images cannot be saved");
+  // Mount SD card.
+  if (!initSDCard()) {
+    Serial.println("[Setup] SD card unavailable — images cannot be saved");
   }
 
   // Initialise the camera.
