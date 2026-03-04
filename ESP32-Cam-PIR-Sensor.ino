@@ -9,7 +9,7 @@
  * 1. Enters deep sleep immediately after setup (or after the WiFi viewing window).
  * 2. Wakes up the instant the HC-SR501 pulls its OUT pin HIGH (motion detected).
  * 3. Auto-detects whichever camera module is fitted (OV2640, OV2660, OV3660, OV5640).
- * 4. Captures a JPEG photo and saves it to SPIFFS (internal flash, no SD card required).
+ * 4. Captures a JPEG photo and saves it to micro SD card (no internal flash limitation).
  * 5. Starts a WiFi Access Point + tiny web server so you can browse to the device IP
  *    and view / download every saved image—without unplugging the USB cable.
  * 6. After WIFI_ACTIVE_DURATION_MS the AP shuts down and the board goes back to sleep.
@@ -28,14 +28,14 @@
  *   • "ESP32" board package by Espressif (tested ≥ 2.x)
  *     Install via: Arduino IDE → Boards Manager → search "esp32"
  *   • esp_camera  — bundled with the ESP32 board package
- *   • SPIFFS       — bundled with the ESP32 board package
+ *   • SD_MMC       — bundled with the ESP32 board package
  *   • WiFi         — bundled with the ESP32 board package
  *   • WebServer    — bundled with the ESP32 board package
  *
  * Board / partition settings in Arduino IDE
  * ------------------------------------------
  *   Board         : AI Thinker ESP32-CAM
- *   Partition     : Huge APP (3MB No OTA / 1MB SPIFFS)  ← gives 1 MB for images
+ *   Partition     : Huge APP (3MB No OTA / 1MB SPIFFS)  ← provides boot space; images stored on SD
  *   Upload speed  : 115200 (or 921600 for faster uploads)
  *   Flash freq    : 80MHz
  */
@@ -43,6 +43,7 @@
 #include "esp_camera.h"
 #include "esp_sleep.h"
 #include "SD_MMC.h"
+
 #include <WiFi.h>
 #include <WebServer.h>
 
@@ -69,7 +70,7 @@
 // Increase this if you need more time to browse / download images.
 #define WIFI_ACTIVE_DURATION_MS  30000UL  // 30 seconds
 
-// Rolling image store: at most this many JPEG files are kept in SPIFFS.
+// Rolling image store: at most this many JPEG files are kept on the SD card.
 // Oldest file is overwritten once the limit is reached.
 #define MAX_IMAGES  5
 
@@ -337,7 +338,7 @@ void handleImage() {
     server.send(404, "text/plain", "No image available");
     return;
   }
-  File f = SPIFFS.open(latestImagePath, FILE_READ);
+  File f = SD_MMC.open(latestImagePath, FILE_READ);
   if (!f) {
     server.send(500, "text/plain", "Failed to open image file");
     return;
