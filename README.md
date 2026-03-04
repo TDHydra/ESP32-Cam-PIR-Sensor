@@ -1,2 +1,3 @@
 # ESP32-Cam-PIR-Sensor
 AI Thinker ESP32-Cam Board, using a HC-SR501 PIR Sensor and deep sleep, it wakes when PIR Sensor says motion detected and takes a picture using OV2640, OV2660, OV3660, OV5640b, it need to be very versatile at recognizing which camera is in the device, and serial outputting if its a success or not. It gives thorough information and docs so that anyone can follow along.
+It needs to also inclue a way to view the saved image fast, without disconnecting from the computer in debugging. Either through connecting to the ESP32-Cam(WiFi Or Bluetooth or whatever is available to quickly see what images are saved, once the device connected triggers and has it awake from deep sleep).
